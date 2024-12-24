@@ -131,8 +131,8 @@ void ChatClient::uploadFile() {
     }
 
     QNetworkRequest request(QUrl("ftp://127.0.0.1/" + QFileInfo(fileName).fileName()));
-    request.setAttribute(QNetworkRequest::User, "username"); // Replace with actual username
-    request.setAttribute(QNetworkRequest::Password, "password"); // Replace with actual password
+    request.setAttribute(QNetworkRequest::User, "ftpuser"); 
+    request.setAttribute(QNetworkRequest::Password, "zozo99"); 
 
     QNetworkReply *reply = networkManager->put(request, file);
 
@@ -152,8 +152,8 @@ void ChatClient::downloadFile() {
     if (saveFileName.isEmpty()) return;
 
     QNetworkRequest request(QUrl("ftp://127.0.0.1/" + fileName));
-    request.setAttribute(QNetworkRequest::User, "username"); // Replace with actual username
-    request.setAttribute(QNetworkRequest::Password, "password"); // Replace with actual password
+    request.setAttribute(QNetworkRequest::User, "ftpuser"); // Replace with actual username
+    request.setAttribute(QNetworkRequest::Password, "zozo99"); // Replace with actual password
 
     QNetworkReply *reply = networkManager->get(request);
 
