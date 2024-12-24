@@ -320,16 +320,7 @@ void ChatClient::sendFile() {
     file.close();
 }
 
-void ChatClient::downloadFile() {
-    if (!fileList->currentItem()) return;
-    
-    QString fileName = fileList->currentItem()->text();
-    QJsonObject downloadMsg;
-    downloadMsg["type"] = "downloadFile";
-    downloadMsg["filename"] = fileName;
-    
-    sendJsonMessage(downloadMsg);
-}
+
 
 void ChatClient::processServerMessage(const QByteArray& data) {
     QJsonDocument doc = QJsonDocument::fromJson(data);
