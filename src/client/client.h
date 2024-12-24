@@ -16,6 +16,10 @@
 #include <QJsonArray>
 #include <QNetworkAccessManager>
 #include <QProgressDialog>
+#include <QTimer>
+#include <QSettings>
+#include <QInputDialog>
+#include <QString>
 
 class ChatClient : public QMainWindow {
     Q_OBJECT
@@ -38,6 +42,7 @@ private slots:
     void sendFile();
     void updateDataTransferProgress(qint64 done, qint64 total);
     void onFtpReplyFinished(QNetworkReply *reply);
+    void updateFileList();
 
 private:
     // UI 컴포넌트
@@ -52,7 +57,12 @@ private:
     QTcpSocket *socket;
     QNetworkAccessManager *networkManager;
     QProgressDialog *progressDialog;
+    QTimer *fileListTimer;
 
+    //FTP 설정
+    QString ftpHost;
+    QString ftpUsername;
+    QString ftpPassword;
     // 초기화 함수
     void setupUI();
     void setupFtpClient();  

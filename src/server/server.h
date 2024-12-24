@@ -45,6 +45,7 @@ private:
     void handleCreateRoom(QTcpSocket* socket, const QJsonObject& data);
     void handleJoinRoom(QTcpSocket* socket, const QJsonObject& data);
     void handleChatMessage(QTcpSocket* socket, const QJsonObject& data);
+    void handleFileUploadNotification(QTcpSocket* socket, const QJsonObject& data);
     void handleDisconnection(QTcpSocket* socket);
 
     // 유틸리티 함수

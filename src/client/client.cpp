@@ -114,9 +114,70 @@ void ChatClient::connectToServer() {
 }
 
 void ChatClient::setupFtpClient() {
+    // 설정 파일 읽기
+    QSettings settings("config.ini", QSettings::IniFormat);
+    
+    // FTP 설정 읽기, 없으면 기본값 사용
+    ftpHost = settings.value("ftp/host", "127.0.0.1").toString();
+    ftpUsername = settings.value("ftp/username", "").toString();
+    ftpPassword = settings.value("ftp/password", "").toString();
+    
+    // FTP 설정이 없으면 사용자에게 입력 요청
+    if (ftpUsername.isEmpty() || ftpPassword.isEmpty()) {
+        bool ok;
+        ftpUsername = QInputDialog::getText(this, "FTP Setup", 
+            "Enter FTP username:", QLineEdit::Normal, "", &ok);
+        if (!ok || ftpUsername.isEmpty()) return;
+        
+        ftpPassword = QInputDialog::getText(this, "FTP Setup",
+            "Enter FTP password:", QLineEdit::Password, "", &ok);
+        if (!ok || ftpPassword.isEmpty()) return;
+        
+        // 입력받은 설정 저장
+        settings.setValue("ftp/username", ftpUsername);
+        settings.setValue("ftp/password", ftpPassword);
+    }
+    
+    
+    
     networkManager = new QNetworkAccessManager(this);
 
     connect(networkManager, &QNetworkAccessManager::finished, this, &ChatClient::onFtpReplyFinished);
+
+    // 주기적으로 파일 리스트 업데이트
+    fileListTimer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &ChatClient::updateFileList);
+    fileListTimer->start(5000); // 5초마다 업데이트
+    
+    // 초기 파일 리스트 가져오기
+    updateFileList();
+}
+
+void ChatClient::updateFileList() {
+    
+    QUrl url(QString("ftp://%1/").arg(ftpHost));
+    url.setUserName(ftpUsername);
+    url.setPassword(ftpPassword);
+    
+    QNetworkRequest request(url);
+    QNetworkReply *reply = networkManager->get(request);
+    
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            QString listing = QString::fromUtf8(reply->readAll());
+            QStringList files = listing.split("\n", QString::SkipEmptyParts);
+            
+            fileList->clear();
+            for (const QString &file : files) {
+                // FTP 리스팅에서 파일 이름만 추출
+                QString fileName = file.trimmed();
+                if (!fileName.isEmpty()) {
+                    fileList->addItem(fileName);
+                }
+            }
+        }
+        reply->deleteLater();
+    });
 }
 
 void ChatClient::uploadFile() {
@@ -131,10 +192,9 @@ void ChatClient::uploadFile() {
     }
 
     // FTP URL 생성
-    QUrl url("ftp://127.0.0.1/" + QFileInfo(fileName).fileName());
-    url.setUserName("ftpuser");  // FTP 사용자 이름
-    url.setPassword("zozo99");  // FTP 비밀번호
-
+    QUrl url(QString("ftp://%1/%2").arg(ftpHost, QFileInfo(fileName).fileName()));
+    url.setUserName(ftpUsername);
+    url.setPassword(ftpPassword);
     // QNetworkRequest 생성
     QNetworkRequest request(url);
 
@@ -150,6 +210,15 @@ void ChatClient::uploadFile() {
         file->close();
         file->deleteLater();
         chatArea->append("Upload complete!");
+
+        // 채팅 서버에 파일 업로드 알림 전송
+        QJsonObject fileMsg;
+        fileMsg["type"] = "fileUploaded";
+        fileMsg["filename"] = QFileInfo(fileName).fileName();
+        sendJsonMessage(fileMsg);
+
+        // 파일 리스트 업데이트
+        updateFileList();
     });
 
     chatArea->append("Uploading: " + fileName);;
@@ -167,9 +236,9 @@ void ChatClient::downloadFile() {
     if (saveFileName.isEmpty()) return;
 
     // FTP URL 생성
-    QUrl url("ftp://127.0.0.1/" + fileName);
-    url.setUserName("ftpuser");  // FTP 사용자 이름
-    url.setPassword("zozo99");  // FTP 비밀번호
+    QUrl url(QString("ftp://%1/%2").arg(ftpHost, fileName));
+    url.setUserName(ftpUsername);
+    url.setPassword(ftpPassword);
 
     // QNetworkRequest 생성
     QNetworkRequest request(url);
@@ -346,6 +415,11 @@ void ChatClient::processServerMessage(const QByteArray& data) {
         for (const auto& room : msg["rooms"].toArray()) {
             roomList->addItem(room.toString());
         }
+    }
+    else if (type == "fileUploaded") {
+        QString filename = msg["filename"].toString();
+        chatArea->append("New file available: " + filename);
+        updateFileList();  // 파일 리스트 업데이트
     }
 }
 

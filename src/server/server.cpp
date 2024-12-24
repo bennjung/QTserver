@@ -61,6 +61,10 @@ void ChatServer::processMessage(QTcpSocket* socket, const QByteArray& data) {
     else if (type == "message") {
         handleChatMessage(socket, msg);
     }
+    else if (type == "fileUploaded") {
+        // 새로 추가된 부분: 파일 업로드 알림 처리
+        handleFileUploadNotification(socket, msg);
+    }
 }
 
 void ChatServer::handleRegistration(QTcpSocket* socket, const QJsonObject& data) {
@@ -205,6 +209,29 @@ void ChatServer::handleChatMessage(QTcpSocket* socket, const QJsonObject& data) 
 
     qDebug() << username << "sent message in" << room << ":" << text;
 }
+
+void ChatServer::handleFileUploadNotification(QTcpSocket* socket, const QJsonObject& data) {
+    if (!activeUsers.contains(socket)) {
+        sendError(socket, "You must be logged in");
+        return;
+    }
+
+    QString username = activeUsers[socket];
+    QString filename = data["filename"].toString();
+    
+    // 현재 방의 모든 사용자에게 파일 업로드 알림 전송
+    QString currentRoom = registeredUsers[username].currentRoom;
+    if (!currentRoom.isEmpty() && chatRooms.contains(currentRoom)) {
+        QJsonObject notification;
+        notification["type"] = "fileAvailable";
+        notification["filename"] = filename;
+        notification["uploader"] = username;
+        broadcastToRoom(currentRoom, notification);
+        
+        qDebug() << username << "uploaded file:" << filename << "in room:" << currentRoom;
+    }
+}
+
 
 void ChatServer::handleDisconnection(QTcpSocket* socket) {
     if (activeUsers.contains(socket)) {
