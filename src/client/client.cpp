@@ -1,6 +1,4 @@
 #include "client.h"
-#include <QMessageBox>
-#include <QInputDialog>
 #include <QNetworkRequest>
 #include <QNetworkReply>
 
@@ -18,7 +16,6 @@ void ChatClient::setupUI() {
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
 
-    // Login/Register area
     QHBoxLayout *authLayout = new QHBoxLayout();
     usernameInput = new QLineEdit(this);
     passwordInput = new QLineEdit(this);
@@ -34,7 +31,6 @@ void ChatClient::setupUI() {
     authLayout->addWidget(loginButton);
     authLayout->addWidget(registerButton);
     
-    // Room management
     QHBoxLayout *roomLayout = new QHBoxLayout();
     roomList = new QComboBox(this);
     QPushButton *createRoomButton = new QPushButton("Create Room", this);
@@ -44,11 +40,9 @@ void ChatClient::setupUI() {
     roomLayout->addWidget(createRoomButton);
     roomLayout->addWidget(joinRoomButton);
 
-    // Chat area
     chatArea = new QTextEdit(this);
     chatArea->setReadOnly(true);
 
-    // Message input
     QHBoxLayout *messageLayout = new QHBoxLayout();
     messageInput = new QLineEdit(this);
     QPushButton *sendButton = new QPushButton("Send", this);
@@ -56,7 +50,6 @@ void ChatClient::setupUI() {
     messageLayout->addWidget(messageInput);
     messageLayout->addWidget(sendButton);
 
-    // FTP
     QHBoxLayout *fileLayout = new QHBoxLayout();
     fileList = new QListWidget(this);
     
@@ -69,7 +62,6 @@ void ChatClient::setupUI() {
     fileButtonLayout->addWidget(downloadButton);
     fileLayout->addLayout(fileButtonLayout);
 
-    // Add all layouts to main layout
     mainLayout->addLayout(authLayout);
     mainLayout->addLayout(roomLayout);
     mainLayout->addWidget(chatArea);
@@ -78,7 +70,6 @@ void ChatClient::setupUI() {
 
     setCentralWidget(centralWidget);
 
-    // Connect signals/slots
     connect(loginButton, &QPushButton::clicked, this, &ChatClient::handleLogin);
     connect(registerButton, &QPushButton::clicked, this, &ChatClient::handleRegistration);
     connect(createRoomButton, &QPushButton::clicked, this, &ChatClient::handleCreateRoom);
@@ -115,33 +106,50 @@ void ChatClient::connectToServer() {
 
 void ChatClient::setupFtpClient() {
     // 설정 파일 읽기
+    QFileInfo configFile("config.ini");
     QSettings settings("config.ini", QSettings::IniFormat);
     
-    // FTP 설정 읽기, 없으면 기본값 사용
-    ftpHost = settings.value("ftp/host", "127.0.0.1").toString();
-    ftpUsername = settings.value("ftp/username", "").toString();
-    ftpPassword = settings.value("ftp/password", "").toString();
+    if (configFile.exists()) {
+        // 설정 파일이 있으면 읽기
+        ftpHost = settings.value("ftp/host", "127.0.0.1").toString();
+        ftpUsername = settings.value("ftp/username", "").toString();
+        ftpPassword = settings.value("ftp/password", "").toString();
+    }
     
-    // FTP 설정이 없으면 사용자에게 입력 요청
-    if (ftpUsername.isEmpty() || ftpPassword.isEmpty()) {
+    if (!configFile.exists() || ftpUsername.isEmpty() || ftpPassword.isEmpty()) {
         bool ok;
+        
+        // FTP 호스트 입력
+        ftpHost = QInputDialog::getText(this, "FTP Setup", 
+            "Enter FTP host:", QLineEdit::Normal, "127.0.0.1", &ok);
+        if (!ok) {
+            ftpHost = "127.0.0.1";  // 취소하면 기본값 사용
+        }
+        
+        // FTP 사용자 이름 입력
         ftpUsername = QInputDialog::getText(this, "FTP Setup", 
             "Enter FTP username:", QLineEdit::Normal, "", &ok);
-        if (!ok || ftpUsername.isEmpty()) return;
+        if (!ok || ftpUsername.isEmpty()) {
+            QMessageBox::warning(this, "Warning", "FTP username is required");
+            return;
+        }
         
+        // FTP 비밀번호 입력
         ftpPassword = QInputDialog::getText(this, "FTP Setup",
             "Enter FTP password:", QLineEdit::Password, "", &ok);
-        if (!ok || ftpPassword.isEmpty()) return;
+        if (!ok || ftpPassword.isEmpty()) {
+            QMessageBox::warning(this, "Warning", "FTP password is required");
+            return;
+        }
         
         // 입력받은 설정 저장
+        settings.setValue("ftp/host", ftpHost);
         settings.setValue("ftp/username", ftpUsername);
         settings.setValue("ftp/password", ftpPassword);
     }
     
     
-    
     networkManager = new QNetworkAccessManager(this);
-
     connect(networkManager, &QNetworkAccessManager::finished, this, &ChatClient::onFtpReplyFinished);
 
     // 주기적으로 파일 리스트 업데이트
@@ -313,7 +321,6 @@ void ChatClient::handleCreateRoom() {
         createMsg["type"] = "createRoom";
         createMsg["room"] = roomName;
         
-        // Optional: Add password for private rooms
         bool ok;
         QString password = QInputDialog::getText(this, "Room Password", 
             "Password (leave empty for public room):", 
@@ -351,43 +358,7 @@ void ChatClient::sendMessage() {
     messageInput->clear();
 }
 
-void ChatClient::sendFile() {
-    QString fileName = QFileDialog::getOpenFileName(this, "Select File");
-    if (fileName.isEmpty()) return;
-    
-    QFile file(fileName);
-    if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::warning(this, "Error", "Cannot open file");
-        return;
-    }
-    
-    // Send file start message
-    QJsonObject startMsg;
-    startMsg["type"] = "file";
-    startMsg["fileType"] = "start";
-    startMsg["filename"] = QFileInfo(fileName).fileName();
-    sendJsonMessage(startMsg);
-    
-    // Send file in chunks
-    const int chunkSize = 1024 * 1024; // 1MB chunks
-    while (!file.atEnd()) {
-        QByteArray chunk = file.read(chunkSize);
-        QJsonObject chunkMsg;
-        chunkMsg["type"] = "file";
-        chunkMsg["fileType"] = "chunk";
-        chunkMsg["data"] = QString(chunk.toBase64());
-        sendJsonMessage(chunkMsg);
-    }
-    
-    // Send end message
-    QJsonObject endMsg;
-    endMsg["type"] = "file";
-    endMsg["fileType"] = "end";
-    endMsg["filename"] = QFileInfo(fileName).fileName();
-    sendJsonMessage(endMsg);
-    
-    file.close();
-}
+
 
 
 

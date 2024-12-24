@@ -20,6 +20,9 @@
 #include <QSettings>
 #include <QInputDialog>
 #include <QString>
+#include <QMessageBox>
+#include <QFileInfo>
+#include <QFile>
 
 class ChatClient : public QMainWindow {
     Q_OBJECT
@@ -39,7 +42,6 @@ private slots:
     // 파일 전송 관련 슬롯
     void uploadFile();
     void downloadFile();
-    void sendFile();
     void updateDataTransferProgress(qint64 done, qint64 total);
     void onFtpReplyFinished(QNetworkReply *reply);
     void updateFileList();

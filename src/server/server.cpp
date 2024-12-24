@@ -5,7 +5,7 @@
 #include <QDebug>
 
 ChatServer::ChatServer(QObject *parent) : QTcpServer(parent) {
-    // Create default public room
+    
     ChatRoom publicRoom;
     publicRoom.name = "Public";
     chatRooms["Public"] = publicRoom;
@@ -22,7 +22,7 @@ void ChatServer::incomingConnection(qintptr socketDescriptor) {
             handleDisconnection(clientSocket);
         });
 
-        // Send available rooms list
+        
         QJsonObject roomsMsg;
         roomsMsg["type"] = "roomList";
         QJsonArray roomArray;
@@ -109,7 +109,6 @@ void ChatServer::handleLogin(QTcpSocket* socket, const QJsonObject& data) {
     response["type"] = "loginSuccess";
     sendToClient(socket, response);
 
-    // Add to public room by default
     chatRooms["Public"].participants.insert(socket);
 
     qDebug() << username << "logged in";
@@ -132,13 +131,11 @@ void ChatServer::handleCreateRoom(QTcpSocket* socket, const QJsonObject& data) {
         return;
     }
 
-    // Modify initialization to explicitly create a ChatRoom object
     ChatRoom newRoom;
     newRoom.name = roomName;
     newRoom.password = data["password"].toString();
     chatRooms[roomName] = newRoom;
 
-    // Update room list for all clients
     broadcastRoomList();
 
     qDebug() << "New room created:" << roomName;
@@ -158,24 +155,20 @@ void ChatServer::handleJoinRoom(QTcpSocket* socket, const QJsonObject& data) {
 
     ChatRoom& room = chatRooms[roomName];
 
-    // Check password if room is private
     if (!room.password.isEmpty() && data["password"].toString() != room.password) {
         sendError(socket, "Invalid room password");
         return;
     }
 
-    // Remove from current room if any
     QString username = activeUsers[socket];
     QString currentRoom = registeredUsers[username].currentRoom;
     if (!currentRoom.isEmpty()) {
         chatRooms[currentRoom].participants.remove(socket);
     }
 
-    // Add to new room
     room.participants.insert(socket);
     registeredUsers[username].currentRoom = roomName;
 
-    // Notify room members
     QJsonObject notification;
     notification["type"] = "message";
     notification["text"] = username + " has joined the room";
@@ -238,11 +231,9 @@ void ChatServer::handleDisconnection(QTcpSocket* socket) {
         QString username = activeUsers[socket];
         QString room = registeredUsers[username].currentRoom;
 
-        // Remove from room
         if (!room.isEmpty() && chatRooms.contains(room)) {
             chatRooms[room].participants.remove(socket);
 
-            // Notify room members
             QJsonObject notification;
             notification["type"] = "message";
             notification["text"] = username + " has left the room";
