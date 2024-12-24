@@ -278,7 +278,7 @@ void ChatClient::downloadFile() {
 
 void ChatClient::onFtpReplyFinished(QNetworkReply *reply) {
     if (reply->error() != QNetworkReply::NoError) {
-        chatArea->append("FTP Error: " + reply->errorString());
+        
     }
 
     reply->deleteLater();

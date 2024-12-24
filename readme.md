@@ -38,7 +38,7 @@ write_enable=YES
 chroot_local_user=YES
 ```
 
-###FTP 사용자 및 디렉토리 설정
+### FTP 사용자 및 디렉토리 설정
 1. FTP 전용 사용자 생성
 ```
 # FTP 사용자 생성 (사용자 이름은 원하는 대로 설정 가능)
