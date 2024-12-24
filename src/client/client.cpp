@@ -89,27 +89,7 @@ void ChatClient::setupUI() {
     connect(messageInput, &QLineEdit::returnPressed, this, &ChatClient::sendMessage);
 }
 
-void ChatClient::connectToServer() {
-    socket = new QTcpSocket(this);
-    
-    connect(socket, &QTcpSocket::connected, [this]() {
-        chatArea->append("Connected to chat server");
-    });
-    
-    connect(socket, &QTcpSocket::disconnected, [this]() {
-        chatArea->append("Disconnected from chat server");
-    });
-    
-    connect(socket, &QTcpSocket::readyRead, [this]() {
-        QByteArray data = socket->readAll();
-        processServerMessage(data);
-    });
-    
-    socket->connectToHost("127.0.0.1", 12345);
-    if (!socket->waitForConnected(3000)) {
-        QMessageBox::critical(this, "Error", "Could not connect to chat server");
-    }
-}
+
 
 void ChatClient::connectToServer() {
     socket = new QTcpSocket(this);

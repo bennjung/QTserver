@@ -30,11 +30,14 @@ private slots:
     void handleJoinRoom();
     void sendMessage();
     void processServerMessage(const QByteArray& data);
+    
 
     // 파일 전송 관련 슬롯
     void uploadFile();
     void downloadFile();
+    void sendFile();
     void updateDataTransferProgress(qint64 done, qint64 total);
+    void onFtpReplyFinished(QNetworkReply *reply);
 
 private:
     // UI 컴포넌트
