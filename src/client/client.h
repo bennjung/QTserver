@@ -14,7 +14,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QFtp>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QProgressDialog>
 #include <QUrl>
 
@@ -24,7 +25,7 @@ public:
     ChatClient(QWidget *parent = nullptr);
 
 private slots:
-    // 채팅 관련 슬롯
+    // Chat-related slots
     void handleLogin();
     void handleRegistration();
     void handleCreateRoom();
@@ -32,11 +33,12 @@ private slots:
     void sendMessage();
     void processServerMessage(const QByteArray& data);
 
-    // FTP 관련 슬롯
+    // File transfer-related slots
     void uploadFile();
     void downloadFile();
-    void ftpCommandFinished(int id, bool error);
-    void updateDataTransferProgress(qint64 done, qint64 total);
+    void handleUploadFinished();
+    void handleDownloadFinished();
+    void updateDataTransferProgress(qint64 bytesReceived, qint64 bytesTotal);
 
 private:
     // UI components
@@ -46,18 +48,17 @@ private:
     QTextEdit *chatArea;
     QLineEdit *messageInput;
     QListWidget *fileList;
-    
-    // 채팅 서버 연결
+
+    // Chat server connection
     QTcpSocket *socket;
     void connectToServer();
     void sendJsonMessage(const QJsonObject& message);
 
-    // FTP 관련 멤버
-    QFtp *ftp;
+    // File transfer components
+    QNetworkAccessManager *networkManager;
     QProgressDialog *progressDialog;
-    bool ftpLoggedIn;
-    void connectToFtpServer();
-    
-    // UI 설정
+    void setupNetworkManager();
+
+    // UI setup
     void setupUI();
 };

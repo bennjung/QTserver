@@ -1,12 +1,14 @@
 #include "client.h"
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QNetworkRequest>
+#include <QNetworkReply>
 
 
 ChatClient::ChatClient(QWidget *parent) : QMainWindow(parent) {
     setupUI();
     connectToServer();
-    connectToFtpServer();
+    setupFtpClient();
 }
 
 void ChatClient::setupUI() {
@@ -109,90 +111,98 @@ void ChatClient::connectToServer() {
     }
 }
 
-void ChatClient::connectToFtpServer() {
-    ftp = new QFtp(this);
-    connect(ftp, &QFtp::commandFinished, this, &ChatClient::ftpCommandFinished);
-    connect(ftp, &QFtp::dataTransferProgress, this, &ChatClient::updateDataTransferProgress);
-    
-    ftp->connectToHost("127.0.0.1", 21);  // FTP 서버 주소와 포트
+void ChatClient::connectToServer() {
+    socket = new QTcpSocket(this);
+
+    connect(socket, &QTcpSocket::connected, [this]() {
+        chatArea->append("Connected to chat server");
+    });
+
+    connect(socket, &QTcpSocket::disconnected, [this]() {
+        chatArea->append("Disconnected from chat server");
+    });
+
+    connect(socket, &QTcpSocket::readyRead, [this]() {
+        QByteArray data = socket->readAll();
+        processServerMessage(data);
+    });
+
+    socket->connectToHost("127.0.0.1", 12345);
+    if (!socket->waitForConnected(3000)) {
+        QMessageBox::critical(this, "Error", "Could not connect to chat server");
+    }
+}
+
+void ChatClient::setupFtpClient() {
+    networkManager = new QNetworkAccessManager(this);
+
+    connect(networkManager, &QNetworkAccessManager::finished, this, &ChatClient::onFtpReplyFinished);
 }
 
 void ChatClient::uploadFile() {
-    // 먼저 FTP 로그인 확인
-    if (!ftpLoggedIn) {
-        QString username = QInputDialog::getText(this, "FTP Login", "Username:");
-        QString password = QInputDialog::getText(this, "FTP Login", "Password:", 
-                                               QLineEdit::Password);
-        ftp->login(username, password);
-        return;
-    }
-
     QString fileName = QFileDialog::getOpenFileName(this, "Select File to Upload");
     if (fileName.isEmpty()) return;
-    
+
     QFile *file = new QFile(fileName);
     if (!file->open(QIODevice::ReadOnly)) {
         chatArea->append("Failed to open file: " + fileName);
         delete file;
         return;
     }
-    
-    progressDialog = new QProgressDialog("Uploading file...", "Cancel", 0, 100, this);
-    progressDialog->setValue(0);
-    
-    ftp->put(file, QFileInfo(fileName).fileName());
+
+    QNetworkRequest request(QUrl("ftp://127.0.0.1/" + QFileInfo(fileName).fileName()));
+    request.setAttribute(QNetworkRequest::User, "username"); // Replace with actual username
+    request.setAttribute(QNetworkRequest::Password, "password"); // Replace with actual password
+
+    QNetworkReply *reply = networkManager->put(request, file);
+
+    connect(reply, &QNetworkReply::uploadProgress, this, &ChatClient::updateDataTransferProgress);
     chatArea->append("Uploading: " + fileName);
 }
 
 void ChatClient::downloadFile() {
-    if (!ftpLoggedIn) {
-        QString username = QInputDialog::getText(this, "FTP Login", "Username:");
-        QString password = QInputDialog::getText(this, "FTP Login", "Password:", 
-                                               QLineEdit::Password);
-        ftp->login(username, password);
-        return;
-    }
-
     if (!fileList->currentItem()) {
         QMessageBox::warning(this, "Error", "Please select a file to download");
         return;
     }
-    
+
     QString fileName = fileList->currentItem()->text();
     QString saveFileName = QFileDialog::getSaveFileName(this, "Save File As", fileName);
-    
+
     if (saveFileName.isEmpty()) return;
-    
+
+    QNetworkRequest request(QUrl("ftp://127.0.0.1/" + fileName));
+    request.setAttribute(QNetworkRequest::User, "username"); // Replace with actual username
+    request.setAttribute(QNetworkRequest::Password, "password"); // Replace with actual password
+
+    QNetworkReply *reply = networkManager->get(request);
+
     QFile *file = new QFile(saveFileName);
     if (!file->open(QIODevice::WriteOnly)) {
         chatArea->append("Failed to create file: " + saveFileName);
         delete file;
         return;
     }
-    
-    progressDialog = new QProgressDialog("Downloading file...", "Cancel", 0, 100, this);
-    progressDialog->setValue(0);
-    
-    ftp->get(fileName, file);
-    chatArea->append("Downloading: " + fileName);
+
+    connect(reply, &QNetworkReply::readyRead, [reply, file]() {
+        file->write(reply->readAll());
+    });
+
+    connect(reply, &QNetworkReply::finished, [reply, file, this]() {
+        file->close();
+        file->deleteLater();
+        reply->deleteLater();
+        chatArea->append("Download complete");
+    });
 }
 
-void ChatClient::ftpCommandFinished(int id, bool error) {
-    if (error) {
-        chatArea->append("FTP Error: " + ftp->errorString());
-    } else {
-        if (ftp->currentCommand() == QFtp::Login) {
-            ftpLoggedIn = true;
-            chatArea->append("FTP: Logged in successfully");
-            // 로그인 후 파일 목록 요청
-            ftp->list();
-        } else if (ftp->currentCommand() == QFtp::Put) {
-            chatArea->append("File uploaded successfully");
-        } else if (ftp->currentCommand() == QFtp::Get) {
-            chatArea->append("File downloaded successfully");
-        }
+void ChatClient::onFtpReplyFinished(QNetworkReply *reply) {
+    if (reply->error() != QNetworkReply::NoError) {
+        chatArea->append("FTP Error: " + reply->errorString());
     }
-    
+
+    reply->deleteLater();
+
     if (progressDialog) {
         progressDialog->hide();
         delete progressDialog;

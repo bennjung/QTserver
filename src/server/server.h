@@ -4,25 +4,26 @@
 #include <QMap>
 #include <QString>
 #include <QSet>
+#include <QJsonObject>
 
-// 채팅방 정보를 저장하는 구조체
+// Structure to store chat room information
 struct ChatRoom {
-    QString name;                      // 채팅방 이름
-    QSet<QTcpSocket*> participants;    // 참가자 목록
-    QString password;                  // 비밀번호 (선택적)
+    QString name;                      // Chat room name
+    QSet<QTcpSocket*> participants;    // List of participants
+    QString password;                  // Password (optional)
 };
 
-// 사용자 정보를 저장하는 구조체
+// Structure to store user information
 struct User {
-    QString username;     // 사용자 이름
-    QString password;     // 비밀번호
-    QString currentRoom;  // 현재 참여중인 방
+    QString username;     // Username
+    QString password;     // Password
+    QString currentRoom;  // Current room the user is in
 };
 
 class ChatServer : public QTcpServer {
     Q_OBJECT
 public:
-    ChatServer(QObject *parent = nullptr);
+    explicit ChatServer(QObject *parent = nullptr);
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
@@ -32,21 +33,22 @@ private slots:
     void handleDisconnection(QTcpSocket* socket);
 
 private:
-    // 데이터 저장소
-    QMap<QString, User> registeredUsers;           // 등록된 사용자 목록
-    QMap<QString, ChatRoom> chatRooms;            // 채팅방 목록
-    QMap<QTcpSocket*, QString> activeUsers;        // 현재 접속중인 사용자
+    // Data storage
+    QMap<QString, User> registeredUsers;           // List of registered users
+    QMap<QString, ChatRoom> chatRooms;             // List of chat rooms
+    QMap<QTcpSocket*, QString> activeUsers;        // Currently connected users
 
-    // 메시지 핸들러
+    // Message handlers
     void handleRegistration(QTcpSocket* socket, const QJsonObject& data);
     void handleLogin(QTcpSocket* socket, const QJsonObject& data);
     void handleCreateRoom(QTcpSocket* socket, const QJsonObject& data);
     void handleJoinRoom(QTcpSocket* socket, const QJsonObject& data);
     void handleChatMessage(QTcpSocket* socket, const QJsonObject& data);
 
-    // 유틸리티 함수
+    // Utility functions
     void broadcastToRoom(const QString& room, const QJsonObject& message);
     void sendToClient(QTcpSocket* socket, const QJsonObject& message);
     void sendError(QTcpSocket* socket, const QString& message);
     void broadcastRoomList();
+    void sendRoomListToClient(QTcpSocket* socket);
 };
