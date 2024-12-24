@@ -15,9 +15,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QNetworkAccessManager>
-#include <QNetworkReply>
 #include <QProgressDialog>
-#include <QUrl>
 
 class ChatClient : public QMainWindow {
     Q_OBJECT
@@ -25,7 +23,7 @@ public:
     ChatClient(QWidget *parent = nullptr);
 
 private slots:
-    // Chat-related slots
+    // 채팅 관련 슬롯
     void handleLogin();
     void handleRegistration();
     void handleCreateRoom();
@@ -33,15 +31,13 @@ private slots:
     void sendMessage();
     void processServerMessage(const QByteArray& data);
 
-    // File transfer-related slots
+    // 파일 전송 관련 슬롯
     void uploadFile();
     void downloadFile();
-    void handleUploadFinished();
-    void handleDownloadFinished();
-    void updateDataTransferProgress(qint64 bytesReceived, qint64 bytesTotal);
+    void updateDataTransferProgress(qint64 done, qint64 total);
 
 private:
-    // UI components
+    // UI 컴포넌트
     QLineEdit *usernameInput;
     QLineEdit *passwordInput;
     QComboBox *roomList;
@@ -49,16 +45,15 @@ private:
     QLineEdit *messageInput;
     QListWidget *fileList;
 
-    // Chat server connection
+    // 네트워크 컴포넌트
     QTcpSocket *socket;
-    void connectToServer();
-    void sendJsonMessage(const QJsonObject& message);
-
-    // File transfer components
     QNetworkAccessManager *networkManager;
     QProgressDialog *progressDialog;
-    void setupNetworkManager();
 
-    // UI setup
+    // 초기화 함수
     void setupUI();
+    void setupFtpClient();  
+    void connectToServer();
+    void sendJsonMessage(const QJsonObject& message);
 };
+
