@@ -106,6 +106,8 @@ void ChatClient::connectToServer() {
 
 void ChatClient::setupFtpClient() {
     // 설정 파일 읽기
+    progressDialog = nullptr;
+
     QFileInfo configFile("config.ini");
     QSettings settings("config.ini", QSettings::IniFormat);
     
@@ -155,10 +157,10 @@ void ChatClient::setupFtpClient() {
     // 주기적으로 파일 리스트 업데이트
     fileListTimer = new QTimer(this);
     connect(fileListTimer, &QTimer::timeout, this, &ChatClient::updateFileList);
-    fileListTimer->start(5000); // 5초마다 업데이트
-    
-    // 초기 파일 리스트 가져오기
-    updateFileList();
+    QTimer::singleShot(1000, this, [this]() {
+        fileListTimer->start(5000);
+        updateFileList();
+    });
 }
 
 void ChatClient::updateFileList() {

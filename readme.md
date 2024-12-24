@@ -38,8 +38,37 @@ write_enable=YES
 chroot_local_user=YES
 ```
 
+###FTP 사용자 및 디렉토리 설정
+1. FTP 전용 사용자 생성
+```
+# FTP 사용자 생성 (사용자 이름은 원하는 대로 설정 가능)
+sudo useradd -m [username]
+sudo [passwd] [username]
+```
+
+2. FTP 루트 디렉토리 설정
+```
+# FTP 루트 디렉토리 생성
+sudo mkdir -p /srv/ftp
+
+# 디렉토리 소유권 및 권한 설정
+sudo chown -R username:username /srv/ftp
+sudo chmod 755 /srv/ftp
+```
+
+3. vsftpd.conf에 루트 디렉토리 설정 추가 
+```
+# FTP 루트 디렉토리 설정
+local_root=/srv/ftp
+```
+
 ### 설정 적용
 ```bash
 # vsftpd 서비스 재시작
 sudo systemctl restart vsftpd
 ```
+
+### 주의사항
+- FTP 사용자 이름과 비밀번호는 보안을 위해 적절히 설정해주세요 
+- 채팅 클라이언트 실행 시 FTP 접속 정보를 입력하라는 메시지가 표시됩니다
+- 입력한 FTP 접속 정보는 config.ini 파일에 저장됩니다
