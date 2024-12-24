@@ -154,7 +154,7 @@ void ChatClient::setupFtpClient() {
 
     // 주기적으로 파일 리스트 업데이트
     fileListTimer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, &ChatClient::updateFileList);
+    connect(fileListTimer, &QTimer::timeout, this, &ChatClient::updateFileList);
     fileListTimer->start(5000); // 5초마다 업데이트
     
     // 초기 파일 리스트 가져오기
@@ -205,8 +205,6 @@ void ChatClient::uploadFile() {
     url.setPassword(ftpPassword);
     // QNetworkRequest 생성
     QNetworkRequest request(url);
-
-    // 업로드 시작
     QNetworkReply *reply = networkManager->put(request, file);
 
     // 업로드 진행 상태 추적
