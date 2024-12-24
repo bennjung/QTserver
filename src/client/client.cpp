@@ -130,14 +130,29 @@ void ChatClient::uploadFile() {
         return;
     }
 
-    QNetworkRequest request(QUrl("ftp://127.0.0.1/" + QFileInfo(fileName).fileName()));
-    request.setAttribute(QNetworkRequest::User, "ftpuser"); 
-    request.setAttribute(QNetworkRequest::Password, "zozo99"); 
+    // FTP URL 생성
+    QUrl url("ftp://127.0.0.1/" + QFileInfo(fileName).fileName());
+    url.setUserName("ftpuser");  // FTP 사용자 이름
+    url.setPassword("zozo99");  // FTP 비밀번호
 
+    // QNetworkRequest 생성
+    QNetworkRequest request(url);
+
+    // 업로드 시작
     QNetworkReply *reply = networkManager->put(request, file);
 
+    // 업로드 진행 상태 추적
     connect(reply, &QNetworkReply::uploadProgress, this, &ChatClient::updateDataTransferProgress);
-    chatArea->append("Uploading: " + fileName);
+
+    // 업로드 완료 후 처리
+    connect(reply, &QNetworkReply::finished, this, [reply, file, this]() {
+        reply->deleteLater();
+        file->close();
+        file->deleteLater();
+        chatArea->append("Upload complete!");
+    });
+
+    chatArea->append("Uploading: " + fileName);;
 }
 
 void ChatClient::downloadFile() {
@@ -151,12 +166,18 @@ void ChatClient::downloadFile() {
 
     if (saveFileName.isEmpty()) return;
 
-    QNetworkRequest request(QUrl("ftp://127.0.0.1/" + fileName));
-    request.setAttribute(QNetworkRequest::User, "ftpuser"); // Replace with actual username
-    request.setAttribute(QNetworkRequest::Password, "zozo99"); // Replace with actual password
+    // FTP URL 생성
+    QUrl url("ftp://127.0.0.1/" + fileName);
+    url.setUserName("ftpuser");  // FTP 사용자 이름
+    url.setPassword("zozo99");  // FTP 비밀번호
 
+    // QNetworkRequest 생성
+    QNetworkRequest request(url);
+
+    // 다운로드 시작
     QNetworkReply *reply = networkManager->get(request);
 
+    // 다운로드 진행 상태 추적
     QFile *file = new QFile(saveFileName);
     if (!file->open(QIODevice::WriteOnly)) {
         chatArea->append("Failed to create file: " + saveFileName);
@@ -168,12 +189,14 @@ void ChatClient::downloadFile() {
         file->write(reply->readAll());
     });
 
-    connect(reply, &QNetworkReply::finished, [reply, file, this]() {
+    connect(reply, &QNetworkReply::finished, this, [reply, file, this]() {
         file->close();
         file->deleteLater();
         reply->deleteLater();
-        chatArea->append("Download complete");
+        chatArea->append("Download complete!");
     });
+
+    chatArea->append("Downloading: " + fileName);
 }
 
 void ChatClient::onFtpReplyFinished(QNetworkReply *reply) {
