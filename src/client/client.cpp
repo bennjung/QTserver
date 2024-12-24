@@ -211,7 +211,7 @@ void ChatClient::uploadFile() {
     connect(reply, &QNetworkReply::uploadProgress, this, &ChatClient::updateDataTransferProgress);
 
     // 업로드 완료 후 처리
-    connect(reply, &QNetworkReply::finished, this, [reply, file, this]() {
+    connect(reply, &QNetworkReply::finished, [this, reply, file, fileName]() {
         reply->deleteLater();
         file->close();
         file->deleteLater();
