@@ -2,8 +2,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QFile>
-#include <QDir>
 #include <QDebug>
 
 ChatServer::ChatServer(QObject *parent) : QTcpServer(parent) {
@@ -11,9 +9,6 @@ ChatServer::ChatServer(QObject *parent) : QTcpServer(parent) {
     ChatRoom publicRoom;
     publicRoom.name = "Public";
     chatRooms["Public"] = publicRoom;
-    
-    // Create directory for file transfers if it doesn't exist
-    QDir().mkdir("uploads");
 }
 
 void ChatServer::incomingConnection(qintptr socketDescriptor) {
@@ -65,9 +60,6 @@ void ChatServer::processMessage(QTcpSocket* socket, const QByteArray& data) {
     }
     else if (type == "message") {
         handleChatMessage(socket, msg);
-    }
-    else if (type == "file") {
-        handleFileTransfer(socket, msg);
     }
 }
 
@@ -168,22 +160,23 @@ void ChatServer::handleJoinRoom(QTcpSocket* socket, const QJsonObject& data) {
     }
     
     // Remove from current room if any
-    QString currentRoom = registeredUsers[activeUsers[socket]].currentRoom;
+    QString username = activeUsers[socket];
+    QString currentRoom = registeredUsers[username].currentRoom;
     if (!currentRoom.isEmpty()) {
         chatRooms[currentRoom].participants.remove(socket);
     }
     
     // Add to new room
     room.participants.insert(socket);
-    registeredUsers[activeUsers[socket]].currentRoom = roomName;
+    registeredUsers[username].currentRoom = roomName;
     
     // Notify room members
     QJsonObject notification;
     notification["type"] = "message";
-    notification["text"] = activeUsers[socket] + " has joined the room";
+    notification["text"] = username + " has joined the room";
     broadcastToRoom(roomName, notification);
     
-    qDebug() << activeUsers[socket] << "joined room:" << roomName;
+    qDebug() << username << "joined room:" << roomName;
 }
 
 void ChatServer::handleChatMessage(QTcpSocket* socket, const QJsonObject& data) {
@@ -208,44 +201,8 @@ void ChatServer::handleChatMessage(QTcpSocket* socket, const QJsonObject& data) 
     chatMsg["sender"] = username;
     chatMsg["text"] = text;
     broadcastToRoom(room, chatMsg);
-}
-
-void ChatServer::handleFileTransfer(QTcpSocket* socket, const QJsonObject& data) {
-    if (!activeUsers.contains(socket)) {
-        sendError(socket, "You must be logged in");
-        return;
-    }
     
-    QString fileType = data["fileType"].toString();
-    
-    if (fileType == "start") {
-        fileBuffers[socket].clear();
-    }
-    else if (fileType == "chunk") {
-        QByteArray chunk = QByteArray::fromBase64(data["data"].toString().toLatin1());
-        fileBuffers[socket].append(chunk);
-    }
-    else if (fileType == "end") {
-        QString filename = "uploads/" + data["filename"].toString();
-        QFile file(filename);
-        
-        if (file.open(QIODevice::WriteOnly)) {
-            file.write(fileBuffers[socket]);
-            file.close();
-            
-            // Notify room members about the file
-            QString room = registeredUsers[activeUsers[socket]].currentRoom;
-            QJsonObject fileMsg;
-            fileMsg["type"] = "fileAvailable";
-            fileMsg["filename"] = data["filename"].toString();
-            fileMsg["sender"] = activeUsers[socket];
-            broadcastToRoom(room, fileMsg);
-            
-            qDebug() << "File saved:" << filename;
-        }
-        
-        fileBuffers.remove(socket);
-    }
+    qDebug() << username << "sent message in" << room << ":" << text;
 }
 
 void ChatServer::handleDisconnection(QTcpSocket* socket) {

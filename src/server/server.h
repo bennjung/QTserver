@@ -36,7 +36,6 @@ private:
     QMap<QString, User> registeredUsers;           // 등록된 사용자 목록
     QMap<QString, ChatRoom> chatRooms;            // 채팅방 목록
     QMap<QTcpSocket*, QString> activeUsers;        // 현재 접속중인 사용자
-    QMap<QTcpSocket*, QByteArray> fileBuffers;     // 파일 전송용 버퍼
 
     // 메시지 핸들러
     void handleRegistration(QTcpSocket* socket, const QJsonObject& data);
@@ -44,7 +43,6 @@ private:
     void handleCreateRoom(QTcpSocket* socket, const QJsonObject& data);
     void handleJoinRoom(QTcpSocket* socket, const QJsonObject& data);
     void handleChatMessage(QTcpSocket* socket, const QJsonObject& data);
-    void handleFileTransfer(QTcpSocket* socket, const QJsonObject& data);
 
     // 유틸리티 함수
     void broadcastToRoom(const QString& room, const QJsonObject& message);

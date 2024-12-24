@@ -1,9 +1,12 @@
 #include "client.h"
 #include <QMessageBox>
+#include <QInputDialog>
+
 
 ChatClient::ChatClient(QWidget *parent) : QMainWindow(parent) {
     setupUI();
     connectToServer();
+    connectToFtpServer();
 }
 
 void ChatClient::setupUI() {
@@ -51,13 +54,18 @@ void ChatClient::setupUI() {
     messageLayout->addWidget(messageInput);
     messageLayout->addWidget(sendButton);
 
-    // File transfer
+    // FTP
     QHBoxLayout *fileLayout = new QHBoxLayout();
     fileList = new QListWidget(this);
-    QPushButton *sendFileButton = new QPushButton("Send File", this);
+    
+    QPushButton *uploadButton = new QPushButton("Upload File", this);
+    QPushButton *downloadButton = new QPushButton("Download File", this);
     
     fileLayout->addWidget(fileList);
-    fileLayout->addWidget(sendFileButton);
+    QVBoxLayout *fileButtonLayout = new QVBoxLayout();
+    fileButtonLayout->addWidget(uploadButton);
+    fileButtonLayout->addWidget(downloadButton);
+    fileLayout->addLayout(fileButtonLayout);
 
     // Add all layouts to main layout
     mainLayout->addLayout(authLayout);
@@ -74,7 +82,8 @@ void ChatClient::setupUI() {
     connect(createRoomButton, &QPushButton::clicked, this, &ChatClient::handleCreateRoom);
     connect(joinRoomButton, &QPushButton::clicked, this, &ChatClient::handleJoinRoom);
     connect(sendButton, &QPushButton::clicked, this, &ChatClient::sendMessage);
-    connect(sendFileButton, &QPushButton::clicked, this, &ChatClient::sendFile);
+    connect(uploadButton, &QPushButton::clicked, this, &ChatClient::uploadFile);
+    connect(downloadButton, &QPushButton::clicked, this, &ChatClient::downloadFile);
     connect(messageInput, &QLineEdit::returnPressed, this, &ChatClient::sendMessage);
 }
 
@@ -82,11 +91,11 @@ void ChatClient::connectToServer() {
     socket = new QTcpSocket(this);
     
     connect(socket, &QTcpSocket::connected, [this]() {
-        chatArea->append("Connected to server");
+        chatArea->append("Connected to chat server");
     });
     
     connect(socket, &QTcpSocket::disconnected, [this]() {
-        chatArea->append("Disconnected from server");
+        chatArea->append("Disconnected from chat server");
     });
     
     connect(socket, &QTcpSocket::readyRead, [this]() {
@@ -96,7 +105,104 @@ void ChatClient::connectToServer() {
     
     socket->connectToHost("127.0.0.1", 12345);
     if (!socket->waitForConnected(3000)) {
-        QMessageBox::critical(this, "Error", "Could not connect to server");
+        QMessageBox::critical(this, "Error", "Could not connect to chat server");
+    }
+}
+
+void ChatClient::connectToFtpServer() {
+    ftp = new QFtp(this);
+    connect(ftp, &QFtp::commandFinished, this, &ChatClient::ftpCommandFinished);
+    connect(ftp, &QFtp::dataTransferProgress, this, &ChatClient::updateDataTransferProgress);
+    
+    ftp->connectToHost("127.0.0.1", 21);  // FTP 서버 주소와 포트
+}
+
+void ChatClient::uploadFile() {
+    // 먼저 FTP 로그인 확인
+    if (!ftpLoggedIn) {
+        QString username = QInputDialog::getText(this, "FTP Login", "Username:");
+        QString password = QInputDialog::getText(this, "FTP Login", "Password:", 
+                                               QLineEdit::Password);
+        ftp->login(username, password);
+        return;
+    }
+
+    QString fileName = QFileDialog::getOpenFileName(this, "Select File to Upload");
+    if (fileName.isEmpty()) return;
+    
+    QFile *file = new QFile(fileName);
+    if (!file->open(QIODevice::ReadOnly)) {
+        chatArea->append("Failed to open file: " + fileName);
+        delete file;
+        return;
+    }
+    
+    progressDialog = new QProgressDialog("Uploading file...", "Cancel", 0, 100, this);
+    progressDialog->setValue(0);
+    
+    ftp->put(file, QFileInfo(fileName).fileName());
+    chatArea->append("Uploading: " + fileName);
+}
+
+void ChatClient::downloadFile() {
+    if (!ftpLoggedIn) {
+        QString username = QInputDialog::getText(this, "FTP Login", "Username:");
+        QString password = QInputDialog::getText(this, "FTP Login", "Password:", 
+                                               QLineEdit::Password);
+        ftp->login(username, password);
+        return;
+    }
+
+    if (!fileList->currentItem()) {
+        QMessageBox::warning(this, "Error", "Please select a file to download");
+        return;
+    }
+    
+    QString fileName = fileList->currentItem()->text();
+    QString saveFileName = QFileDialog::getSaveFileName(this, "Save File As", fileName);
+    
+    if (saveFileName.isEmpty()) return;
+    
+    QFile *file = new QFile(saveFileName);
+    if (!file->open(QIODevice::WriteOnly)) {
+        chatArea->append("Failed to create file: " + saveFileName);
+        delete file;
+        return;
+    }
+    
+    progressDialog = new QProgressDialog("Downloading file...", "Cancel", 0, 100, this);
+    progressDialog->setValue(0);
+    
+    ftp->get(fileName, file);
+    chatArea->append("Downloading: " + fileName);
+}
+
+void ChatClient::ftpCommandFinished(int id, bool error) {
+    if (error) {
+        chatArea->append("FTP Error: " + ftp->errorString());
+    } else {
+        if (ftp->currentCommand() == QFtp::Login) {
+            ftpLoggedIn = true;
+            chatArea->append("FTP: Logged in successfully");
+            // 로그인 후 파일 목록 요청
+            ftp->list();
+        } else if (ftp->currentCommand() == QFtp::Put) {
+            chatArea->append("File uploaded successfully");
+        } else if (ftp->currentCommand() == QFtp::Get) {
+            chatArea->append("File downloaded successfully");
+        }
+    }
+    
+    if (progressDialog) {
+        progressDialog->hide();
+        delete progressDialog;
+        progressDialog = nullptr;
+    }
+}
+
+void ChatClient::updateDataTransferProgress(qint64 done, qint64 total) {
+    if (progressDialog) {
+        progressDialog->setValue(done * 100 / total);
     }
 }
 
