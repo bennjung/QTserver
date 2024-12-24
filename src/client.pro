@@ -1,18 +1,17 @@
-QT += core network
-QT -= gui
+QT += core network widgets
+CONFIG += c++11
 
-TARGET = chat_server
-CONFIG += c++11 console
+TARGET = chat_client
 CONFIG -= app_bundle
 
 # 빌드 디렉토리 설정
-DESTDIR = $$PWD/build/server
-OBJECTS_DIR = $$PWD/build/server/.obj
-MOC_DIR = $$PWD/build/server/.moc
+DESTDIR = $$PWD/build/client
+OBJECTS_DIR = $$PWD/build/client/.obj
+MOC_DIR = $$PWD/build/client/.moc
 
 SOURCES += \
-    server/main.cpp \
-    server/server.cpp
+    client/main.cpp \
+    client/client.cpp
 
 HEADERS += \
-    server/server.h
+    client/client.h
